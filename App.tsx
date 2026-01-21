@@ -10,6 +10,7 @@ import StoreScreen from './src/screens/StoreScreen';
 import OrdersScreen from './src/screens/OrdersScreen';
 import MenuScreen from './src/screens/MenuScreen';
 import SettingsScreen from './src/screens/SettingsScreen';
+import SupportScreen from './src/screens/SupportScreen';
 import { theme } from './src/theme';
 
 const Tab = createBottomTabNavigator();
@@ -29,6 +30,8 @@ export default function App() {
                   iconName = focused ? 'store' : 'store-outline';
                 } else if (route.name === 'Pedidos') {
                   iconName = focused ? 'clipboard-list' : 'clipboard-list-outline';
+                } else if (route.name === 'Atendimento') {
+                  iconName = focused ? 'message-text' : 'message-text-outline';
                 } else if (route.name === 'Cardápio') {
                   iconName = focused ? 'food' : 'food-outline';
                 } else {
@@ -57,6 +60,11 @@ export default function App() {
               name="Pedidos" 
               component={OrdersScreen}
               options={{ title: '📋 Pedidos' }}
+            />
+            <Tab.Screen 
+              name="Atendimento" 
+              component={SupportScreen}
+              options={{ title: '💬 Atendimento' }}
             />
             <Tab.Screen 
               name="Cardápio" 

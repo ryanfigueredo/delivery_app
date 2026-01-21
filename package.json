@@ -25,7 +25,8 @@
     "react-native-paper": "^5.12.5",
     "@react-native-community/datetimepicker": "8.2.0",
     "@expo/vector-icons": "^14.0.0",
-    "expo-device": "~6.0.2"
+    "expo-device": "~6.0.2",
+    "expo-notifications": "~0.28.0"
   },
   "devDependencies": {
     "@babel/core": "^7.20.0",

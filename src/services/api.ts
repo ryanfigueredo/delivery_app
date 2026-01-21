@@ -81,6 +81,10 @@ export const apiService = {
     await api.patch(`/api/orders/${orderId}/mark-out-for-delivery`);
   },
 
+  async notifyDelivery(orderId: string): Promise<void> {
+    await api.post(`/api/orders/${orderId}/notify-delivery`, {});
+  },
+
   // Menu
   async getMenu(): Promise<MenuItem[]> {
     const response = await api.get<{ items: MenuItem[] }>('/api/admin/menu');
@@ -91,4 +95,19 @@ export const apiService = {
     const response = await api.put<{ success: boolean; item: MenuItem }>('/api/admin/menu', item);
     return response.data.item;
   },
+
+  // Conversas Prioritárias (Atendimento)
+  async getPriorityConversations(): Promise<PriorityConversation[]> {
+    const response = await api.get<{ conversations: PriorityConversation[]; total: number }>('/api/admin/priority-conversations');
+    return response.data.conversations;
+  },
 };
+
+export interface PriorityConversation {
+  phone: string;
+  phoneFormatted: string;
+  whatsappUrl: string;
+  waitTime: number; // minutos
+  timestamp: number;
+  lastMessage: number;
+}

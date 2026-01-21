@@ -49,12 +49,12 @@ export default function OrdersScreen() {
       );
     } else if (order.status === 'printed' && order.order_type === 'delivery') {
       Alert.alert(
-        'Marcar como saiu para entrega?',
-        `Pedido ${order.display_id || order.id}\nCliente: ${order.customer_name}`,
+        '🚚 Pedido saindo para entrega',
+        `Pedido: ${order.display_id || order.id}\nCliente: ${order.customer_name}\n\nO bot vai enviar uma mensagem automática para o cliente informando que o pedido está a caminho!`,
         [
           { text: 'Cancelar', style: 'cancel' },
           {
-            text: 'Sim',
+            text: 'Confirmar',
             onPress: () => markAsOutForDelivery(order.id),
           },
         ]
@@ -80,8 +80,23 @@ export default function OrdersScreen() {
 
   const markAsOutForDelivery = async (orderId: string) => {
     try {
+      // Marcar como saiu para entrega
       await apiService.markOrderOutForDelivery(orderId);
-      Alert.alert('Sucesso', 'Pedido marcado como saiu para entrega!');
+      
+      // Enviar notificação via bot WhatsApp
+      try {
+        await apiService.notifyDelivery(orderId);
+        Alert.alert(
+          '✅ Sucesso!',
+          'Pedido marcado como saiu para entrega!\n\n📱 Mensagem enviada ao cliente via WhatsApp.'
+        );
+      } catch (notifyError: any) {
+        Alert.alert(
+          '⚠️ Atenção',
+          'Pedido marcado como saiu para entrega!\n\nHouve um problema ao enviar a mensagem, mas o pedido foi atualizado.'
+        );
+      }
+      
       loadOrders();
     } catch (error: any) {
       Alert.alert('Erro', `Erro ao marcar pedido: ${error.message}`);
