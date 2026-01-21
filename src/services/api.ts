@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_BASE_URL = 'https://tamboril-burguer.vercel.app';
+const API_BASE_URL = 'https://delivery-back-eosin.vercel.app';
 const API_KEY = '7e229ceb049fcfa2d3c6ff29b4e50d202bd3855804e66fb02487419e79124b26';
 
 const api = axios.create({

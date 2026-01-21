@@ -97,7 +97,7 @@ export class PrinterService {
       }
 
       // Envia comando via API para a maquininha imprimir
-      const response = await fetch('https://tamboril-burguer.vercel.app/api/printer/print', {
+      const response = await fetch('https://delivery-back-eosin.vercel.app/api/printer/print', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
