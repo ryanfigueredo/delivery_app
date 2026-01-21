@@ -1,7 +1,9 @@
 import axios from 'axios';
+import Constants from 'expo-constants';
 
-const API_BASE_URL = 'https://delivery-back-eosin.vercel.app';
-const API_KEY = '7e229ceb049fcfa2d3c6ff29b4e50d202bd3855804e66fb02487419e79124b26';
+// Usar variáveis de ambiente do Expo
+const API_BASE_URL = Constants.expoConfig?.extra?.apiBaseUrl || 'https://delivery-back-eosin.vercel.app';
+const API_KEY = Constants.expoConfig?.extra?.apiKey || '';
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -72,8 +74,8 @@ export const apiService = {
   },
 
   // Orders
-  async getAllOrders(): Promise<Order[]> {
-    const response = await api.get<Order[]>('/api/orders');
+  async getAllOrders(page = 1, limit = 20): Promise<{ orders: Order[]; pagination: any }> {
+    const response = await api.get<{ orders: Order[]; pagination: any }>(`/api/orders?page=${page}&limit=${limit}`);
     return response.data;
   },
 

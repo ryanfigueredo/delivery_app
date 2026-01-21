@@ -17,7 +17,10 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.tamborilburguer.admin",
-      "icon": "./assets/icon.png"
+      "icon": "./assets/icon.png",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -26,6 +29,13 @@
       },
       "package": "com.tamborilburguer.admin",
       "icon": "./assets/icon.png"
+    },
+    "extra": {
+      "apiBaseUrl": "https://delivery-back-eosin.vercel.app",
+      "apiKey": "7e229ceb049fcfa2d3c6ff29b4e50d202bd3855804e66fb02487419e79124b26",
+      "eas": {
+        "projectId": "8f4937e4-2136-4f0b-a1d1-502a48203822"
+      }
     }
   }
 }

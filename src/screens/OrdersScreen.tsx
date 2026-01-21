@@ -8,6 +8,8 @@ export default function OrdersScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [orders, setOrders] = useState<Order[]>([]);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
 
   useEffect(() => {
     printerService.initialize();
@@ -15,21 +17,29 @@ export default function OrdersScreen() {
     
     // Atualizar pedidos a cada 10 segundos
     const interval = setInterval(() => {
-      loadOrders(true); // silent refresh
+      loadOrders(true, 1); // silent refresh, sempre página 1
     }, 10000);
 
     return () => clearInterval(interval);
   }, []);
 
-  const loadOrders = async (silent = false) => {
+  const loadOrders = async (silent = false, pageNum = 1) => {
     try {
       if (!silent) setLoading(true);
-      const data = await apiService.getAllOrders();
+      const data = await apiService.getAllOrders(pageNum, 20);
       // Ordenar por data (mais recentes primeiro)
-      const sortedData = data.sort((a, b) => 
+      const sortedData = data.orders.sort((a, b) => 
         new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
       );
-      setOrders(sortedData);
+      
+      if (pageNum === 1) {
+        setOrders(sortedData);
+      } else {
+        setOrders(prev => [...prev, ...sortedData]);
+      }
+      
+      setHasMore(data.pagination.hasMore);
+      setPage(pageNum);
     } catch (error: any) {
       if (!silent) {
         Alert.alert('Erro', `Erro ao carregar pedidos: ${error.message}`);
@@ -43,7 +53,8 @@ export default function OrdersScreen() {
 
   const onRefresh = () => {
     setRefreshing(true);
-    loadOrders();
+    setPage(1);
+    loadOrders(false, 1);
   };
 
   const handleOrderPress = (order: Order) => {
