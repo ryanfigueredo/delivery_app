@@ -1,0 +1,26 @@
+{
+  "expo": {
+    "name": "Tamboril Burguer Admin",
+    "slug": "tamboril-burguer-admin",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "backgroundColor": "#4CAF50",
+      "resizeMode": "contain"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.tamborilburguer.admin"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#4CAF50"
+      },
+      "package": "com.tamborilburguer.admin"
+    }
+  }
+}
