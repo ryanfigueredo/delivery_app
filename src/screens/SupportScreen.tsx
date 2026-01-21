@@ -1,54 +1,97 @@
-import React, { useState, useEffect } from 'react';
-import { View, ScrollView, StyleSheet, Alert, RefreshControl, Linking } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, ScrollView, StyleSheet, Alert, RefreshControl, Linking, Platform } from 'react-native';
 import { Card, Text, ActivityIndicator, FAB, Badge, Button } from 'react-native-paper';
 import { apiService, PriorityConversation } from '../services/api';
-// Notificações serão implementadas quando expo-notifications estiver instalado
-// import * as Notifications from 'expo-notifications';
+import * as Notifications from 'expo-notifications';
+
+// Configurar comportamento de notificações
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge: true,
+  }),
+});
 
 export default function SupportScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [conversations, setConversations] = useState<PriorityConversation[]>([]);
   const [notificationPermission, setNotificationPermission] = useState(false);
+  const previousCountRef = useRef<number>(0);
+  const notificationListener = useRef<any>(null);
+  const responseListener = useRef<any>(null);
 
   useEffect(() => {
     checkNotificationPermission();
     loadConversations();
     
-    // Verificar novas conversas a cada 30 segundos
+    // Verificar novas conversas a cada 10 segundos (mais frequente)
     const interval = setInterval(() => {
       loadConversations(true); // silent refresh
-    }, 30000);
+    }, 10000);
 
-    return () => clearInterval(interval);
+    // Listener para quando a notificação é recebida
+    notificationListener.current = Notifications.addNotificationReceivedListener(notification => {
+      console.log('Notificação recebida:', notification);
+    });
+
+    // Listener para quando o usuário toca na notificação
+    responseListener.current = Notifications.addNotificationResponseReceivedListener(response => {
+      console.log('Usuário tocou na notificação:', response);
+    });
+
+    return () => {
+      clearInterval(interval);
+      if (notificationListener.current) {
+        Notifications.removeNotificationSubscription(notificationListener.current);
+      }
+      if (responseListener.current) {
+        Notifications.removeNotificationSubscription(responseListener.current);
+      }
+    };
   }, []);
 
   const checkNotificationPermission = async () => {
-    // TODO: Implementar quando expo-notifications estiver instalado
-    // try {
-    //   const { status } = await Notifications.getPermissionsAsync();
-    //   if (status !== 'granted') {
-    //     const { status: newStatus } = await Notifications.requestPermissionsAsync();
-    //     setNotificationPermission(newStatus === 'granted');
-    //   } else {
-    //     setNotificationPermission(true);
-    //   }
-    // } catch (error) {
-    //   console.error('Erro ao verificar permissão de notificação:', error);
-    // }
-    setNotificationPermission(false); // Temporário
+    try {
+      const { status: existingStatus } = await Notifications.getPermissionsAsync();
+      let finalStatus = existingStatus;
+      
+      if (existingStatus !== 'granted') {
+        const { status } = await Notifications.requestPermissionsAsync();
+        finalStatus = status;
+      }
+      
+      setNotificationPermission(finalStatus === 'granted');
+      
+      if (finalStatus !== 'granted') {
+        Alert.alert(
+          'Permissão de Notificação',
+          'Para receber alertas de novos clientes, ative as notificações nas configurações do app.',
+          [{ text: 'OK' }]
+        );
+      }
+    } catch (error) {
+      console.error('Erro ao verificar permissão de notificação:', error);
+      setNotificationPermission(false);
+    }
   };
 
   const loadConversations = async (silent = false) => {
     try {
       if (!silent) setLoading(true);
       const data = await apiService.getPriorityConversations();
-      setConversations(data);
+      const previousCount = previousCountRef.current;
+      const currentCount = data.length;
       
-      // Se houver novas conversas, enviar notificação
-      if (data.length > 0 && notificationPermission) {
-        sendNotificationIfNeeded(data);
+      // Detectar novas conversas
+      if (currentCount > previousCount && previousCount > 0 && notificationPermission) {
+        const newCount = currentCount - previousCount;
+        await sendNotificationForNewConversations(data, newCount);
       }
+      
+      setConversations(data);
+      previousCountRef.current = currentCount;
     } catch (error: any) {
       if (!silent) {
         Alert.alert('Erro', `Erro ao carregar conversas: ${error.message}`);
@@ -59,24 +102,40 @@ export default function SupportScreen() {
     }
   };
 
-  const sendNotificationIfNeeded = async (newConversations: PriorityConversation[]) => {
-    // TODO: Implementar quando expo-notifications estiver instalado
-    // try {
-    //   const urgentConversations = newConversations.filter(conv => conv.waitTime >= 5);
-    //   if (urgentConversations.length > 0) {
-    //     await Notifications.scheduleNotificationAsync({
-    //       content: {
-    //         title: '🔔 Atendimento Necessário',
-    //         body: `${urgentConversations.length} cliente(s) aguardando atendimento há mais de 5 minutos`,
-    //         sound: true,
-    //         priority: Notifications.AndroidNotificationPriority.HIGH,
-    //       },
-    //       trigger: null,
-    //     });
-    //   }
-    // } catch (error) {
-    //   console.error('Erro ao enviar notificação:', error);
-    // }
+  const sendNotificationForNewConversations = async (
+    conversations: PriorityConversation[],
+    newCount: number
+  ) => {
+    try {
+      const urgentConversations = conversations.filter(conv => conv.waitTime >= 5);
+      const hasUrgent = urgentConversations.length > 0;
+
+      let title = 'Novo Cliente Pediu Atendimento';
+      let body = `${newCount} novo(s) cliente(s) aguardando atendimento`;
+
+      if (hasUrgent) {
+        title = 'ATENDIMENTO URGENTE';
+        body = `${urgentConversations.length} cliente(s) aguardando há mais de 5 minutos!`;
+      }
+
+      await Notifications.scheduleNotificationAsync({
+        content: {
+          title,
+          body,
+          sound: true,
+          priority: hasUrgent 
+            ? Notifications.AndroidNotificationPriority.HIGH 
+            : Notifications.AndroidNotificationPriority.DEFAULT,
+          data: {
+            screen: 'Support',
+            conversationsCount: conversations.length,
+          },
+        },
+        trigger: null, // Enviar imediatamente
+      });
+    } catch (error) {
+      console.error('Erro ao enviar notificação:', error);
+    }
   };
 
   const onRefresh = () => {
@@ -126,7 +185,7 @@ export default function SupportScreen() {
           <Card style={styles.card}>
             <Card.Content>
               <Text style={styles.emptyText}>
-                ✅ Nenhuma conversa prioritária no momento
+                Nenhuma conversa prioritária no momento
               </Text>
               <Text style={styles.emptySubtext}>
                 Clientes que pedirem atendimento aparecerão aqui
@@ -137,7 +196,7 @@ export default function SupportScreen() {
           <>
             <View style={styles.header}>
               <Text style={styles.headerTitle}>
-                🔔 Conversas Prioritárias
+                Conversas Prioritárias
               </Text>
               <Badge style={styles.badge}>{conversations.length}</Badge>
             </View>
@@ -155,7 +214,7 @@ export default function SupportScreen() {
                     <View style={styles.conversationInfo}>
                       <Text style={styles.phoneText}>{conv.phoneFormatted}</Text>
                       <Text style={styles.waitTimeText}>
-                        ⏱️ Aguardando: {formatWaitTime(conv.waitTime)}
+                        Aguardando: {formatWaitTime(conv.waitTime)}
                       </Text>
                     </View>
                     {conv.waitTime >= 10 && (
@@ -195,7 +254,7 @@ const styles = StyleSheet.create({
   },
   scrollView: {
     flex: 1,
-    padding: 16,
+    padding: 8,
   },
   center: {
     flex: 1,
@@ -221,7 +280,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#FF5722',
   },
   card: {
-    marginBottom: 12,
+    marginBottom: 8,
+    elevation: 4,
+    borderRadius: 8,
   },
   cardUrgent: {
     borderLeftWidth: 4,

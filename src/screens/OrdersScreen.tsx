@@ -12,15 +12,29 @@ export default function OrdersScreen() {
   useEffect(() => {
     printerService.initialize();
     loadOrders();
+    
+    // Atualizar pedidos a cada 10 segundos
+    const interval = setInterval(() => {
+      loadOrders(true); // silent refresh
+    }, 10000);
+
+    return () => clearInterval(interval);
   }, []);
 
-  const loadOrders = async () => {
+  const loadOrders = async (silent = false) => {
     try {
-      setLoading(true);
+      if (!silent) setLoading(true);
       const data = await apiService.getAllOrders();
-      setOrders(data);
+      // Ordenar por data (mais recentes primeiro)
+      const sortedData = data.sort((a, b) => 
+        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      );
+      setOrders(sortedData);
     } catch (error: any) {
-      Alert.alert('Erro', `Erro ao carregar pedidos: ${error.message}`);
+      if (!silent) {
+        Alert.alert('Erro', `Erro ao carregar pedidos: ${error.message}`);
+      }
+      console.error('Erro ao carregar pedidos:', error);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -49,7 +63,7 @@ export default function OrdersScreen() {
       );
     } else if (order.status === 'printed' && order.order_type === 'delivery') {
       Alert.alert(
-        '🚚 Pedido saindo para entrega',
+        'Pedido saindo para entrega',
         `Pedido: ${order.display_id || order.id}\nCliente: ${order.customer_name}\n\nO bot vai enviar uma mensagem automática para o cliente informando que o pedido está a caminho!`,
         [
           { text: 'Cancelar', style: 'cancel' },
@@ -87,12 +101,12 @@ export default function OrdersScreen() {
       try {
         await apiService.notifyDelivery(orderId);
         Alert.alert(
-          '✅ Sucesso!',
-          'Pedido marcado como saiu para entrega!\n\n📱 Mensagem enviada ao cliente via WhatsApp.'
+          'Sucesso!',
+          'Pedido marcado como saiu para entrega!\n\nMensagem enviada ao cliente via WhatsApp.'
         );
       } catch (notifyError: any) {
         Alert.alert(
-          '⚠️ Atenção',
+          'Atenção',
           'Pedido marcado como saiu para entrega!\n\nHouve um problema ao enviar a mensagem, mas o pedido foi atualizado.'
         );
       }
@@ -105,7 +119,11 @@ export default function OrdersScreen() {
 
   const showOrderDetails = (order: Order) => {
     const itemsText = order.items
-      .map((item) => `${item.quantity}x ${item.name} - R$ ${(item.price * item.quantity).toFixed(2)}`)
+      .map((item) => {
+        const itemPrice = typeof item.price === 'number' ? item.price : parseFloat(item.price?.toString() || '0');
+        const quantity = item.quantity || 1;
+        return `${quantity}x ${item.name} - R$ ${(itemPrice * quantity).toFixed(2).replace('.', ',')}`;
+      })
       .join('\n');
 
     Alert.alert(
@@ -116,22 +134,37 @@ export default function OrdersScreen() {
         `Tipo: ${order.order_type || 'restaurante'}\n` +
         (order.delivery_address ? `Endereço: ${order.delivery_address}\n` : '') +
         `\nItens:\n${itemsText}\n\n` +
-        `Total: R$ ${order.total_price.toFixed(2)}`
+        `Total: R$ ${formatPrice(order.total_price)}`
     );
   };
 
   const getStatusText = (status: string) => {
     switch (status) {
       case 'pending':
-        return '⏳ Pendente';
+        return 'Pendente';
       case 'printed':
-        return '✅ Impresso';
+        return 'Impresso';
       case 'finished':
-        return '✅ Finalizado';
+        return 'Finalizado';
       case 'out_for_delivery':
-        return '🚚 Saiu para entrega';
+        return 'Saiu para entrega';
       default:
         return status;
+    }
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'pending':
+        return '#FF9800'; // Laranja
+      case 'printed':
+        return '#2196F3'; // Azul
+      case 'finished':
+        return '#4CAF50'; // Verde
+      case 'out_for_delivery':
+        return '#9C27B0'; // Roxo
+      default:
+        return '#666';
     }
   };
 
@@ -148,6 +181,29 @@ export default function OrdersScreen() {
     } catch {
       return dateString;
     }
+  };
+
+  const formatPrice = (price: any): string => {
+    if (price === null || price === undefined) {
+      return '0,00';
+    }
+    
+    let numPrice: number;
+    if (typeof price === 'number') {
+      numPrice = price;
+    } else if (typeof price === 'string') {
+      numPrice = parseFloat(price);
+    } else if (typeof price === 'object' && price !== null && 'toNumber' in price) {
+      numPrice = (price as any).toNumber();
+    } else {
+      numPrice = 0;
+    }
+    
+    if (isNaN(numPrice) || !isFinite(numPrice)) {
+      return '0,00';
+    }
+    
+    return numPrice.toFixed(2).replace('.', ',');
   };
 
   if (loading) {
@@ -171,29 +227,60 @@ export default function OrdersScreen() {
           <Card style={styles.card}>
             <Card.Content>
               <Text style={styles.emptyText}>Nenhum pedido encontrado</Text>
+              <Text style={styles.emptySubtext}>
+                Os pedidos do WhatsApp aparecerão aqui automaticamente
+              </Text>
             </Card.Content>
           </Card>
         ) : (
           orders.map((order) => (
             <Card
               key={order.id}
-              style={styles.card}
+              style={[
+                styles.card,
+                order.status === 'pending' && styles.cardPending,
+              ]}
               onPress={() => handleOrderPress(order)}
             >
               <Card.Content>
                 <View style={styles.orderHeader}>
-                  <Text style={styles.orderId}>
-                    {order.display_id || `#${order.daily_sequence?.toString().padStart(3, '0') || '000'}`}
-                  </Text>
-                  <Text style={styles.orderStatus}>
-                    {getStatusText(order.status)}
-                  </Text>
+                  <View style={styles.orderIdContainer}>
+                    <Text style={styles.orderId}>
+                      {order.display_id || `#${order.daily_sequence?.toString().padStart(3, '0') || '000'}`}
+                    </Text>
+                    {order.order_type === 'delivery' && (
+                      <Text style={styles.deliveryBadge}>DELIVERY</Text>
+                    )}
+                  </View>
+                  <View
+                    style={[
+                      styles.statusBadge,
+                      { backgroundColor: getStatusColor(order.status) },
+                    ]}
+                  >
+                    <Text style={styles.statusText}>
+                      {getStatusText(order.status)}
+                    </Text>
+                  </View>
                 </View>
                 <Text style={styles.customerName}>{order.customer_name}</Text>
                 <Text style={styles.orderDate}>{formatDate(order.created_at)}</Text>
-                <Text style={styles.orderTotal}>
-                  R$ {order.total_price.toFixed(2)}
-                </Text>
+                {order.items && order.items.length > 0 && (
+                  <View style={styles.itemsPreview}>
+                    <Text style={styles.itemsText} numberOfLines={2}>
+                      {order.items
+                        .slice(0, 2)
+                        .map((item) => `${item.quantity}x ${item.name}`)
+                        .join(', ')}
+                      {order.items.length > 2 && ` +${order.items.length - 2} mais`}
+                    </Text>
+                  </View>
+                )}
+                <View style={styles.totalContainer}>
+                  <Text style={styles.orderTotal}>
+                    R$ {formatPrice(order.total_price)}
+                  </Text>
+                </View>
               </Card.Content>
             </Card>
           ))
@@ -213,10 +300,11 @@ export default function OrdersScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#f5f5f5',
   },
   scrollView: {
     flex: 1,
-    padding: 16,
+    padding: 8,
   },
   center: {
     flex: 1,
@@ -226,42 +314,95 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: 16,
     fontSize: 16,
+    color: '#666',
   },
   card: {
-    marginBottom: 12,
+    marginBottom: 8,
+    elevation: 4,
+    borderRadius: 8,
+    backgroundColor: '#ffffff',
+  },
+  cardPending: {
+    borderLeftWidth: 4,
+    borderLeftColor: '#FF9800',
   },
   orderHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
+    alignItems: 'flex-start',
+    marginBottom: 12,
+  },
+  orderIdContainer: {
+    flex: 1,
   },
   orderId: {
     fontSize: 18,
     fontWeight: 'bold',
+    color: '#212121',
   },
-  orderStatus: {
-    fontSize: 14,
+  deliveryBadge: {
+    fontSize: 10,
+    fontWeight: 'bold',
+    color: '#9C27B0',
+    marginTop: 4,
+    textTransform: 'uppercase',
+  },
+  statusBadge: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+    marginLeft: 8,
+  },
+  statusText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: 'bold',
   },
   customerName: {
     fontSize: 16,
-    marginTop: 4,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 4,
   },
   orderDate: {
     fontSize: 12,
     color: '#666',
-    marginTop: 4,
+    marginBottom: 8,
+  },
+  itemsPreview: {
+    marginTop: 8,
+    marginBottom: 8,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#e0e0e0',
+  },
+  itemsText: {
+    fontSize: 13,
+    color: '#666',
+    lineHeight: 18,
+  },
+  totalContainer: {
+    marginTop: 8,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#e0e0e0',
   },
   orderTotal: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#4CAF50',
-    marginTop: 8,
+    color: '#4CAF50', // holo_green_dark
   },
   emptyText: {
     textAlign: 'center',
     fontSize: 16,
+    fontWeight: '600',
     color: '#666',
+    marginBottom: 8,
+  },
+  emptySubtext: {
+    textAlign: 'center',
+    fontSize: 14,
+    color: '#999',
   },
   fab: {
     position: 'absolute',

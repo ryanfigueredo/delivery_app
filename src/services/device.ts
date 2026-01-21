@@ -1,5 +1,13 @@
 import { Platform } from 'react-native';
-import * as Device from 'expo-device';
+
+// Importar expo-device de forma segura
+let Device: any = null;
+try {
+  Device = require('expo-device');
+} catch (e) {
+  // expo-device não disponível, usar fallback
+  console.warn('expo-device não disponível, usando fallback');
+}
 
 export interface DeviceInfo {
   isPrinter: boolean; // Se está rodando na maquininha
@@ -12,8 +20,22 @@ export interface DeviceInfo {
  * Detecta se o app está rodando na maquininha ou em dispositivo mobile normal
  */
 export async function getDeviceInfo(): Promise<DeviceInfo> {
-  const deviceId = Device.modelId || 'unknown';
-  const deviceName = Device.modelName || Device.deviceName || 'Unknown Device';
+  let deviceId = 'unknown';
+  let deviceName = 'Unknown Device';
+  
+  // Tentar obter informações do dispositivo de forma segura
+  if (Device) {
+    try {
+      deviceId = Device.modelId || Device.osInternalBuildId || 'unknown';
+      deviceName = Device.modelName || Device.deviceName || Device.brand || 'Unknown Device';
+    } catch (e) {
+      console.warn('Erro ao obter informações do dispositivo:', e);
+    }
+  } else {
+    // Fallback: usar Platform
+    deviceName = Platform.OS === 'ios' ? 'iOS Device' : 'Android Device';
+    deviceId = Platform.OS;
+  }
   
   // Lista de modelos conhecidos de maquininhas POS
   const printerModels = [

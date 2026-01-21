@@ -41,40 +41,48 @@ export default function App() {
                 return <MaterialCommunityIcons name={iconName} size={size} color={color} />;
               },
               tabBarActiveTintColor: '#4CAF50',
-              tabBarInactiveTintColor: 'gray',
+              tabBarInactiveTintColor: '#757575',
+              tabBarStyle: {
+                backgroundColor: '#ffffff',
+                borderTopWidth: 1,
+                borderTopColor: '#e0e0e0',
+              },
               headerStyle: {
                 backgroundColor: '#4CAF50',
+                elevation: 0,
+                shadowOpacity: 0,
               },
               headerTintColor: '#fff',
               headerTitleStyle: {
                 fontWeight: 'bold',
+                fontSize: 18,
               },
             })}
           >
             <Tab.Screen 
               name="Loja" 
               component={StoreScreen}
-              options={{ title: '🍔 Controle de Loja' }}
+              options={{ title: 'Controle de Loja' }}
             />
             <Tab.Screen 
               name="Pedidos" 
               component={OrdersScreen}
-              options={{ title: '📋 Pedidos' }}
+              options={{ title: 'Pedidos' }}
             />
             <Tab.Screen 
               name="Atendimento" 
               component={SupportScreen}
-              options={{ title: '💬 Atendimento' }}
+              options={{ title: 'Atendimento' }}
             />
             <Tab.Screen 
               name="Cardápio" 
               component={MenuScreen}
-              options={{ title: '📝 Cardápio' }}
+              options={{ title: 'Cardápio' }}
             />
             <Tab.Screen 
               name="Configurações" 
               component={SettingsScreen}
-              options={{ title: '⚙️ Config' }}
+              options={{ title: 'Configurações' }}
             />
           </Tab.Navigator>
         </NavigationContainer>

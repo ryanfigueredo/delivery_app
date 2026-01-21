@@ -113,7 +113,7 @@ export default function MenuScreen() {
                       },
                     ]}
                   >
-                    {item.available ? '✅ Disponível' : '❌ Indisponível'}
+                    {item.available ? 'Disponível' : 'Indisponível'}
                   </Text>
                 </View>
               </Card.Content>
