@@ -5,28 +5,46 @@ import { StatusBar } from 'expo-status-bar';
 import { Provider as PaperProvider } from 'react-native-paper';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { View, ActivityIndicator } from 'react-native';
 
+import { AuthProvider, useAuth } from './src/contexts/AuthContext';
+import LoginScreen from './src/screens/LoginScreen';
 import StoreScreen from './src/screens/StoreScreen';
 import OrdersScreen from './src/screens/OrdersScreen';
 import MenuScreen from './src/screens/MenuScreen';
 import SettingsScreen from './src/screens/SettingsScreen';
 import SupportScreen from './src/screens/SupportScreen';
+import DashboardScreen from './src/screens/DashboardScreen';
 import { theme } from './src/theme';
 
 const Tab = createBottomTabNavigator();
 
-export default function App() {
+function AppNavigator() {
+  const { isAuthenticated, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: theme.colors.background }}>
+        <ActivityIndicator size="large" color={theme.colors.primary} />
+      </View>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return <LoginScreen />;
+  }
+
   return (
-    <SafeAreaProvider>
-      <PaperProvider theme={theme}>
-        <NavigationContainer>
-          <StatusBar style="auto" />
-          <Tab.Navigator
+    <NavigationContainer>
+      <StatusBar style="auto" />
+      <Tab.Navigator
             screenOptions={({ route }) => ({
               tabBarIcon: ({ focused, color, size }) => {
                 let iconName: keyof typeof MaterialCommunityIcons.glyphMap;
 
-                if (route.name === 'Loja') {
+                if (route.name === 'Dashboard') {
+                  iconName = focused ? 'view-dashboard' : 'view-dashboard-outline';
+                } else if (route.name === 'Loja') {
                   iconName = focused ? 'store' : 'store-outline';
                 } else if (route.name === 'Pedidos') {
                   iconName = focused ? 'clipboard-list' : 'clipboard-list-outline';
@@ -40,7 +58,7 @@ export default function App() {
 
                 return <MaterialCommunityIcons name={iconName} size={size} color={color} />;
               },
-              tabBarActiveTintColor: '#4CAF50',
+              tabBarActiveTintColor: '#22c55e',
               tabBarInactiveTintColor: '#757575',
               tabBarStyle: {
                 backgroundColor: '#ffffff',
@@ -48,7 +66,7 @@ export default function App() {
                 borderTopColor: '#e0e0e0',
               },
               headerStyle: {
-                backgroundColor: '#4CAF50',
+                backgroundColor: '#22c55e',
                 elevation: 0,
                 shadowOpacity: 0,
               },
@@ -59,6 +77,11 @@ export default function App() {
               },
             })}
           >
+            <Tab.Screen 
+              name="Dashboard" 
+              component={DashboardScreen}
+              options={{ title: 'Dashboard' }}
+            />
             <Tab.Screen 
               name="Loja" 
               component={StoreScreen}
@@ -85,7 +108,17 @@ export default function App() {
               options={{ title: 'Configurações' }}
             />
           </Tab.Navigator>
-        </NavigationContainer>
+    </NavigationContainer>
+  );
+}
+
+export default function App() {
+  return (
+    <SafeAreaProvider>
+      <PaperProvider theme={theme}>
+        <AuthProvider>
+          <AppNavigator />
+        </AuthProvider>
       </PaperProvider>
     </SafeAreaProvider>
   );

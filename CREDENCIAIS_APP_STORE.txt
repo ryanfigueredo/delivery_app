@@ -1,0 +1,38 @@
+INFORMAÇÕES PARA REVISÃO DA APP STORE
+=====================================
+
+INFORMAÇÕES DE CONTATO:
+Nome: Ryan
+
+INFORMAÇÕES PARA INICIAR SESSÃO:
+---------------------------------
+
+O app Pedidos Express não possui tela de login obrigatória. 
+Ele se conecta diretamente à API do backend através de uma chave de API.
+
+Todas as funcionalidades do app estão disponíveis sem necessidade de login:
+- Controle de Loja (abrir/fechar)
+- Visualizar Pedidos
+- Gerenciar Cardápio
+- Atendimento WhatsApp
+- Configurações
+
+O app foi projetado para uso administrativo interno e não requer autenticação no próprio app.
+
+Se a equipe de revisão precisar testar funcionalidades específicas que requeiram acesso ao backend, 
+por favor entre em contato através das informações de contato fornecidas.
+
+---
+
+VERSÃO ALTERNATIVA (se a App Store exigir credenciais):
+--------------------------------------------------------
+
+Se for obrigatório fornecer credenciais, você pode criar um usuário de teste no backend:
+
+URL do Backend: https://delivery-back-eosin.vercel.app/login
+
+Credenciais de teste:
+- Usuário: review@test.com
+- Senha: ReviewTest123!
+
+(Nota: Este usuário precisaria ser criado no banco de dados do backend primeiro)

@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { View, ScrollView, StyleSheet, Alert, RefreshControl } from 'react-native';
 import { Button, Card, Text, ActivityIndicator, FAB } from 'react-native-paper';
 import { apiService, Order } from '../services/api';
 import { printerService } from '../services/printer';
+import { bluetoothPrinterService } from '../services/bluetoothPrinter';
 
 export default function OrdersScreen() {
   const [loading, setLoading] = useState(true);
@@ -10,15 +11,18 @@ export default function OrdersScreen() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
+  const previousOrderIdsRef = useRef<Set<string>>(new Set());
+  const printingOrdersRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     printerService.initialize();
+    bluetoothPrinterService.initialize();
     loadOrders();
     
-    // Atualizar pedidos a cada 10 segundos
+    // Atualizar pedidos a cada 5 segundos (mais frequente para detectar novos pedidos)
     const interval = setInterval(() => {
       loadOrders(true, 1); // silent refresh, sempre página 1
-    }, 10000);
+    }, 5000);
 
     return () => clearInterval(interval);
   }, []);
@@ -32,7 +36,9 @@ export default function OrdersScreen() {
         new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
       );
       
+      // Detectar novos pedidos pendentes e imprimir automaticamente
       if (pageNum === 1) {
+        detectAndPrintNewOrders(sortedData);
         setOrders(sortedData);
       } else {
         setOrders(prev => [...prev, ...sortedData]);
@@ -48,6 +54,60 @@ export default function OrdersScreen() {
     } finally {
       setLoading(false);
       setRefreshing(false);
+    }
+  };
+
+  /**
+   * Detecta novos pedidos pendentes e imprime automaticamente
+   */
+  const detectAndPrintNewOrders = async (currentOrders: Order[]) => {
+    try {
+      const currentOrderIds = new Set(currentOrders.map(o => o.id));
+      
+      // Encontrar novos pedidos (não estavam na lista anterior)
+      const newOrders = currentOrders.filter(order => 
+        !previousOrderIdsRef.current.has(order.id) &&
+        order.status === 'pending' &&
+        !printingOrdersRef.current.has(order.id)
+      );
+      
+      // Atualizar referência
+      previousOrderIdsRef.current = currentOrderIds;
+      
+      // Imprimir novos pedidos automaticamente
+      for (const order of newOrders) {
+        if (bluetoothPrinterService.hasPrinter()) {
+          printingOrdersRef.current.add(order.id);
+          console.log('🖨️ Novo pedido detectado, imprimindo automaticamente:', order.id);
+          
+          // Imprimir em background (não bloquear UI)
+          printOrderAutomatically(order).catch(error => {
+            console.error('Erro ao imprimir pedido automaticamente:', error);
+            printingOrdersRef.current.delete(order.id);
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Erro ao detectar novos pedidos:', error);
+    }
+  };
+
+  /**
+   * Imprime pedido automaticamente (sem mostrar alerta)
+   */
+  const printOrderAutomatically = async (order: Order): Promise<void> => {
+    try {
+      const success = await bluetoothPrinterService.printOrder(order);
+      if (success) {
+        console.log('✅ Pedido impresso automaticamente:', order.id);
+        // Atualizar status do pedido na API (marcar como impresso)
+        // Isso será feito automaticamente quando o pedido for processado
+      }
+    } catch (error: any) {
+      console.error('Erro ao imprimir automaticamente:', error);
+      // Não mostrar alerta para impressão automática (só logar)
+    } finally {
+      printingOrdersRef.current.delete(order.id);
     }
   };
 
@@ -91,6 +151,17 @@ export default function OrdersScreen() {
 
   const printOrder = async (order: Order) => {
     try {
+      // Tentar usar impressora Bluetooth primeiro
+      if (bluetoothPrinterService.hasPrinter()) {
+        const success = await bluetoothPrinterService.printOrder(order);
+        if (success) {
+          Alert.alert('Sucesso', 'Pedido impresso com sucesso!');
+          loadOrders();
+          return;
+        }
+      }
+      
+      // Fallback: usar serviço antigo (para compatibilidade)
       const success = await printerService.printOrder(order);
       if (success) {
         Alert.alert('Sucesso', 'Pedido enviado para impressão!');

@@ -1,15 +1,15 @@
 {
   "expo": {
-    "name": "Tamboril Burguer Admin",
+    "name": "Pedidos Express",
     "slug": "tamboril-burguer-admin",
-    "version": "1.0.0",
+    "version": "2.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
-    "splash": {
-      "image": "./assets/splash.png",
+      "splash": {
+      "image": "./assets/icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#4CAF50"
+      "backgroundColor": "#22c55e"
     },
     "assetBundlePatterns": [
       "**/*"
@@ -17,6 +17,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.tamborilburguer.admin",
+      "buildNumber": "3",
       "icon": "./assets/icon.png",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
@@ -24,10 +25,11 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#4CAF50"
+        "foregroundImage": "./assets/icon.png",
+        "backgroundColor": "#22c55e"
       },
       "package": "com.tamborilburguer.admin",
+      "versionCode": 3,
       "icon": "./assets/icon.png"
     },
     "extra": {
