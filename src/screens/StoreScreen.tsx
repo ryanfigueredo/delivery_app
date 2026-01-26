@@ -3,8 +3,10 @@ import { View, ScrollView, StyleSheet, Alert } from 'react-native';
 import { Button, Switch, TextInput, Text, Card, ActivityIndicator } from 'react-native-paper';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { apiService, StoreStatus } from '../services/api';
+import { useAuth } from '../contexts/AuthContext';
 
 export default function StoreScreen() {
+  const { isAuthenticated } = useAuth();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [isOpen, setIsOpen] = useState(true);
@@ -14,10 +16,18 @@ export default function StoreScreen() {
   const [selectedTime, setSelectedTime] = useState(new Date());
 
   useEffect(() => {
-    loadStoreStatus();
-  }, []);
+    if (isAuthenticated) {
+      loadStoreStatus();
+    } else {
+      setLoading(false);
+    }
+  }, [isAuthenticated]);
 
   const loadStoreStatus = async () => {
+    if (!isAuthenticated) {
+      return;
+    }
+    
     try {
       setLoading(true);
       const status = await apiService.getStoreStatus();
@@ -25,7 +35,10 @@ export default function StoreScreen() {
       setNextOpenTime(status.nextOpenTime);
       setCustomMessage(status.message || '');
     } catch (error: any) {
-      Alert.alert('Erro', `Erro ao carregar status: ${error.message}`);
+      // Não mostrar alerta se for erro 401 (não autenticado) - o interceptor já trata
+      if (error.response?.status !== 401) {
+        Alert.alert('Erro', `Erro ao carregar status: ${error.message}`);
+      }
     } finally {
       setLoading(false);
     }

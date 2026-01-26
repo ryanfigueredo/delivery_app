@@ -50,8 +50,7 @@ export default function SettingsScreen() {
   };
 
   const openBotQRCode = () => {
-    // URL do bot no Railway (ajustar conforme necessário)
-    const botUrl = 'https://web-production-1a0f.up.railway.app';
+    const botUrl = Constants.expoConfig?.extra?.botQrUrl || 'https://web-production-0e9c9.up.railway.app';
     Linking.openURL(botUrl).catch(() => {
       Alert.alert('Erro', 'Não foi possível abrir o link. Verifique se o bot está rodando.');
     });
@@ -291,7 +290,7 @@ export default function SettingsScreen() {
             </View>
           </View>
 
-          <Text style={styles.helpText} style={{ marginTop: 16, marginBottom: 8 }}>
+          <Text style={[styles.helpText, { marginTop: 16, marginBottom: 8 }]}>
             Para conectar o WhatsApp:
           </Text>
           <Text style={styles.helpText}>

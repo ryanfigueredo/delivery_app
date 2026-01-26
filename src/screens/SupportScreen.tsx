@@ -2,18 +2,25 @@ import React, { useState, useEffect, useRef } from 'react';
 import { View, ScrollView, StyleSheet, Alert, RefreshControl, Linking, Platform } from 'react-native';
 import { Card, Text, ActivityIndicator, FAB, Badge, Button } from 'react-native-paper';
 import { apiService, PriorityConversation } from '../services/api';
+import { useAuth } from '../contexts/AuthContext';
 import * as Notifications from 'expo-notifications';
 
-// Configurar comportamento de notificações
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: true,
-  }),
-});
+// Configurar comportamento de notificações (apenas se disponível)
+try {
+  Notifications.setNotificationHandler({
+    handleNotification: async () => ({
+      shouldShowAlert: true,
+      shouldPlaySound: true,
+      shouldSetBadge: true,
+    }),
+  });
+} catch (error) {
+  // Ignorar erro se notificações não estiverem disponíveis (Expo Go)
+  console.log('Notificações não disponíveis no Expo Go');
+}
 
 export default function SupportScreen() {
+  const { isAuthenticated } = useAuth();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [conversations, setConversations] = useState<PriorityConversation[]>([]);
@@ -23,61 +30,84 @@ export default function SupportScreen() {
   const responseListener = useRef<any>(null);
 
   useEffect(() => {
-    checkNotificationPermission();
-    loadConversations();
-    
-    // Verificar novas conversas a cada 10 segundos (mais frequente)
-    const interval = setInterval(() => {
-      loadConversations(true); // silent refresh
-    }, 10000);
+    if (isAuthenticated) {
+      checkNotificationPermission();
+      loadConversations();
+      
+      // Verificar novas conversas a cada 10 segundos (mais frequente)
+      const interval = setInterval(() => {
+        loadConversations(true); // silent refresh
+      }, 10000);
 
-    // Listener para quando a notificação é recebida
-    notificationListener.current = Notifications.addNotificationReceivedListener(notification => {
-      console.log('Notificação recebida:', notification);
-    });
+    // Listener para quando a notificação é recebida (apenas se disponível)
+    try {
+      notificationListener.current = Notifications.addNotificationReceivedListener(notification => {
+        console.log('Notificação recebida:', notification);
+      });
 
-    // Listener para quando o usuário toca na notificação
-    responseListener.current = Notifications.addNotificationResponseReceivedListener(response => {
-      console.log('Usuário tocou na notificação:', response);
-    });
+      // Listener para quando o usuário toca na notificação
+      responseListener.current = Notifications.addNotificationResponseReceivedListener(response => {
+        console.log('Usuário tocou na notificação:', response);
+      });
+    } catch (error) {
+      // Ignorar erro se notificações não estiverem disponíveis
+      console.log('Listeners de notificação não disponíveis');
+    }
 
-    return () => {
-      clearInterval(interval);
-      if (notificationListener.current) {
-        Notifications.removeNotificationSubscription(notificationListener.current);
-      }
-      if (responseListener.current) {
-        Notifications.removeNotificationSubscription(responseListener.current);
-      }
-    };
-  }, []);
+      return () => {
+        clearInterval(interval);
+        try {
+          if (notificationListener.current) {
+            Notifications.removeNotificationSubscription(notificationListener.current);
+          }
+          if (responseListener.current) {
+            Notifications.removeNotificationSubscription(responseListener.current);
+          }
+        } catch (error) {
+          // Ignorar erro ao remover listeners
+        }
+      };
+    } else {
+      setLoading(false);
+    }
+  }, [isAuthenticated]);
 
   const checkNotificationPermission = async () => {
     try {
+      // Verificar se notificações estão disponíveis (não funciona no Expo Go)
       const { status: existingStatus } = await Notifications.getPermissionsAsync();
       let finalStatus = existingStatus;
       
       if (existingStatus !== 'granted') {
-        const { status } = await Notifications.requestPermissionsAsync();
-        finalStatus = status;
+        try {
+          const { status } = await Notifications.requestPermissionsAsync();
+          finalStatus = status;
+        } catch (permError) {
+          // Ignorar erro se notificações não estiverem disponíveis
+          console.log('Notificações não disponíveis (Expo Go)');
+          setNotificationPermission(false);
+          return;
+        }
       }
       
       setNotificationPermission(finalStatus === 'granted');
       
       if (finalStatus !== 'granted') {
-        Alert.alert(
-          'Permissão de Notificação',
-          'Para receber alertas de novos clientes, ative as notificações nas configurações do app.',
-          [{ text: 'OK' }]
-        );
+        // Não mostrar alerta no Expo Go
+        console.log('Permissão de notificação não concedida');
       }
     } catch (error) {
-      console.error('Erro ao verificar permissão de notificação:', error);
+      // Ignorar erros de notificação no Expo Go
+      console.log('Notificações não disponíveis:', error);
       setNotificationPermission(false);
     }
   };
 
   const loadConversations = async (silent = false) => {
+    if (!isAuthenticated) {
+      return;
+    }
+    
     try {
       if (!silent) setLoading(true);
       const data = await apiService.getPriorityConversations();
@@ -93,7 +123,8 @@ export default function SupportScreen() {
       setConversations(data);
       previousCountRef.current = currentCount;
     } catch (error: any) {
-      if (!silent) {
+      // Não mostrar alerta se for erro 401 (não autenticado) - o interceptor já trata
+      if (!silent && error.response?.status !== 401) {
         Alert.alert('Erro', `Erro ao carregar conversas: ${error.message}`);
       }
     } finally {
@@ -107,6 +138,11 @@ export default function SupportScreen() {
     newCount: number
   ) => {
     try {
+      // Verificar se notificações estão disponíveis
+      if (!notificationPermission) {
+        return;
+      }
+
       const urgentConversations = conversations.filter(conv => conv.waitTime >= 5);
       const hasUrgent = urgentConversations.length > 0;
 
@@ -134,7 +170,8 @@ export default function SupportScreen() {
         trigger: null, // Enviar imediatamente
       });
     } catch (error) {
-      console.error('Erro ao enviar notificação:', error);
+      // Ignorar erros de notificação (comum no Expo Go)
+      console.log('Notificação não disponível:', error);
     }
   };
 

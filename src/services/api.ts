@@ -11,7 +11,7 @@ const api = axios.create({
   baseURL: API_BASE_URL,
   headers: {
     'X-API-Key': API_KEY,
-    'X-Tenant-Id': TENANT_ID,
+    'X-Tenant-Id': TENANT_ID, // Enviar sempre o tenantId do app.json como fallback
     'Content-Type': 'application/json',
   },
 });
@@ -36,7 +36,25 @@ api.interceptors.request.use(async (config) => {
   }
   
   return config;
+}, (error) => {
+  return Promise.reject(error);
 });
+
+// Interceptor de resposta para tratar erros 401 (não autenticado)
+api.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    if (error.response?.status === 401) {
+      // Se receber 401, fazer logout automático
+      try {
+        await authService.logout();
+      } catch (logoutError) {
+        console.error('Erro ao fazer logout:', logoutError);
+      }
+    }
+    return Promise.reject(error);
+  }
+);
 
 // Função btoa para React Native (base64 encode)
 function btoa(str: string): string {
